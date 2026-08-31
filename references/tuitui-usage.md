@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 准备好 skill 仓库（克隆后可任意目录）
-git clone https://github.com/op7418/Claude-to-IM-skill.git
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git
 cd Claude-to-IM-skill
 
 # 2. 一键部署（凭据从环境变量传入，非交互）
@@ -83,7 +83,7 @@ bash scripts/doctor.sh            # 诊断
 
 ```bash
 # 1. 克隆与一键部署
-git clone https://github.com/op7418/Claude-to-IM-skill.git /opt/claude-to-im-skill
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git /opt/claude-to-im-skill
 CTI_TUITUI_APPID=... CTI_TUITUI_SECRET=... CTI_TUITUI_BOT_NAME=... CTI_HOME=/var/lib/claude-to-im \
   bash /opt/claude-to-im-skill/scripts/install-tuitui.sh --auto-approve --workdir /data/agent-workspace
 

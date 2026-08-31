@@ -45,7 +45,7 @@ Choose the section that matches the AI agent product you actually use.
 Standalone deployment for the TuiTui channel (needs Node >= 20 and Claude Code CLI):
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git
 cd Claude-to-IM-skill
 CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<bot name> \
   bash scripts/install-tuitui.sh --auto-approve --workdir /data/agent-workspace
@@ -59,7 +59,7 @@ Day-to-day management reuses `scripts/daemon.sh {start|stop|status|logs}`. See [
 #### Recommended: `npx skills`
 
 ```bash
-npx skills add op7418/Claude-to-IM-skill
+npx skills add bbfe-ai/Claude-to-IM-skill
 ```
 
 After installation, tell Claude Code:
@@ -77,7 +77,7 @@ If you want WeChat specifically, you can also say:
 #### Alternative: clone directly into Claude Code skills
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/.claude/skills/claude-to-im
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/.claude/skills/claude-to-im
 ```
 
 Claude Code discovers it automatically.
@@ -85,7 +85,7 @@ Claude Code discovers it automatically.
 #### Alternative: symlink for development
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
 mkdir -p ~/.claude/skills
 ln -s ~/code/Claude-to-IM-skill ~/.claude/skills/claude-to-im
 ```
@@ -95,7 +95,7 @@ ln -s ~/code/Claude-to-IM-skill ~/.claude/skills/claude-to-im
 #### Recommended: use the Codex install script
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
 bash ~/code/Claude-to-IM-skill/scripts/install-codex.sh
 ```
 
@@ -122,7 +122,7 @@ If you want WeChat specifically, you can also say:
 #### Alternative: clone directly into Codex skills
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/.codex/skills/claude-to-im
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/.codex/skills/claude-to-im
 cd ~/.codex/skills/claude-to-im
 npm install
 npm run build
@@ -143,7 +143,7 @@ Choose the update flow that matches both your AI agent product and your installa
 If you installed with `npx skills`, re-run:
 
 ```bash
-npx skills add op7418/Claude-to-IM-skill
+npx skills add bbfe-ai/Claude-to-IM-skill
 ```
 
 If you installed via `git clone` or symlink:

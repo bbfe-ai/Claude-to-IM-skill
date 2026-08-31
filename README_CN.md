@@ -45,7 +45,7 @@ Claude Code / Codex → 读写你的代码库
 不依赖 `npx skills` 的独立部署方式（需要 Node >= 20 与 Claude Code CLI）：
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git
 cd Claude-to-IM-skill
 CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<机器人名> \
   bash scripts/install-tuitui.sh --auto-approve --workdir /data/agent-workspace
@@ -59,7 +59,7 @@ CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<机器
 #### 推荐：`npx skills`
 
 ```bash
-npx skills add op7418/Claude-to-IM-skill
+npx skills add bbfe-ai/Claude-to-IM-skill
 ```
 
 安装完成后，直接对 Claude Code 说：
@@ -77,7 +77,7 @@ npx skills add op7418/Claude-to-IM-skill
 #### 备选：直接克隆到 Claude Code Skills 目录
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/.claude/skills/claude-to-im
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/.claude/skills/claude-to-im
 ```
 
 Claude Code 会自动发现。
@@ -85,7 +85,7 @@ Claude Code 会自动发现。
 #### 备选：符号链接方式（适合开发）
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
 mkdir -p ~/.claude/skills
 ln -s ~/code/Claude-to-IM-skill ~/.claude/skills/claude-to-im
 ```
@@ -95,7 +95,7 @@ ln -s ~/code/Claude-to-IM-skill ~/.claude/skills/claude-to-im
 #### 推荐：使用 Codex 安装脚本
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/code/Claude-to-IM-skill
 bash ~/code/Claude-to-IM-skill/scripts/install-codex.sh
 ```
 
@@ -122,7 +122,7 @@ claude-to-im setup
 #### 备选：直接克隆到 Codex skills 目录
 
 ```bash
-git clone https://github.com/op7418/Claude-to-IM-skill.git ~/.codex/skills/claude-to-im
+git clone https://github.com/bbfe-ai/Claude-to-IM-skill.git ~/.codex/skills/claude-to-im
 cd ~/.codex/skills/claude-to-im
 npm install
 npm run build
@@ -143,7 +143,7 @@ npm run build
 如果你是通过 `npx skills` 安装的，直接重新执行：
 
 ```bash
-npx skills add op7418/Claude-to-IM-skill
+npx skills add bbfe-ai/Claude-to-IM-skill
 ```
 
 如果你是通过 `git clone` 或符号链接安装的：
