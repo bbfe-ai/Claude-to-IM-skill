@@ -230,21 +230,34 @@ export class TuituiAdapter extends BaseChannelAdapter {
 export function buildCardFromInlineButtons(message: OutboundMessage, cardUrl: string): InteractiveCard {
   const flatButtons = (message.inlineButtons ?? []).flat();
   const permId = flatButtons[0]?.callbackData.split(':').slice(2).join(':') ?? 'unknown';
+  // 卡片中文化: 按钮文案按 callbackData 前缀映射（broker 的英文文案是上游共用，不动）
+  const bodyContent = stripHtml(message.text)
+    .replaceAll('Permission Required', '权限请求')
+    .replaceAll('Choose an action:', '请选择操作：')
+    .replaceAll('Permission response recorded.', '权限已记录。');
   return {
     id: `perm_${permId}`,
     url: cardUrl,
     mobileurl: cardUrl,
-    head: { text: 'Permission Required', bgcolor: '#2C3E50', tcolor: '#FFFFFF' },
-    body: { content: stripHtml(message.text) },
+    head: { text: '权限请求', bgcolor: '#2C3E50', tcolor: '#FFFFFF' },
+    body: { content: bodyContent },
     footer: [],
     action: flatButtons.map((btn, i) => ({
-      text: btn.text,
+      text: buttonLabel(btn.callbackData) ?? btn.text,
       name: `perm_${i}_${permId}`,
       value: btn.callbackData,
       color: 'FFFFFF',
       bgcolor: bgForAction(btn.callbackData),
     })),
   };
+}
+
+/** 已知权限按钮的英文标签映射为中文；未知标签保持原样。 */
+function buttonLabel(callbackData: string): string | undefined {
+  if (callbackData.startsWith('perm:allow_session:')) return '允许本次会话';
+  if (callbackData.startsWith('perm:deny:')) return '拒绝';
+  if (callbackData.startsWith('perm:allow:')) return '允许';
+  return undefined;
 }
 
 export function buildDecisionCard(cardUrl: string, statusText: string, action: 'allow' | 'deny'): InteractiveCard {

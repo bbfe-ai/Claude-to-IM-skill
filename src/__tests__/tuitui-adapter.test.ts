@@ -66,3 +66,25 @@ describe('TuituiAdapter start', () => {
     delete (globalThis as Record<string, unknown>)['__bridge_context__'];
   });
 });
+
+describe('buildCardFromInlineButtons 中文化', () => {
+  it('maps known permission buttons and headers to Chinese', () => {
+    const card = buildCardFromInlineButtons({
+      address: { channelType: 'tuitui', chatId: 'tuitui:app-1:single:u1' },
+      text: '<b>Permission Required</b>\n\nTool: <code>Read</code>\n\nChoose an action:',
+      parseMode: 'HTML',
+      inlineButtons: [
+        [{ text: 'Allow', callbackData: 'perm:allow:req-2' }],
+        [{ text: 'Allow Session', callbackData: 'perm:allow_session:req-2' }],
+        [{ text: 'Deny', callbackData: 'perm:deny:req-2' }],
+      ],
+    }, 'https://intent-os.qihoo.net');
+
+    assert.equal(card.head.text, '权限请求');
+    assert.equal(card.body.content.includes('权限请求'), true);
+    assert.equal(card.body.content.includes('请选择操作：'), true);
+    assert.equal(card.action[0]!.text, '允许');
+    assert.equal(card.action[1]!.text, '允许本次会话');
+    assert.equal(card.action[2]!.text, '拒绝');
+  });
+});
