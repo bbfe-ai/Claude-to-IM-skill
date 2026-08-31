@@ -40,6 +40,20 @@ Claude Code / Codex → reads/writes your codebase
 
 Choose the section that matches the AI agent product you actually use.
 
+### TuiTui channel one-click deploy (internal IM)
+
+Standalone deployment for the TuiTui channel (needs Node >= 20 and Claude Code CLI):
+
+```bash
+git clone https://github.com/op7418/Claude-to-IM-skill.git
+cd Claude-to-IM-skill
+CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<bot name> \
+  bash scripts/install-tuitui.sh --auto-approve --workdir /data/agent-workspace
+```
+
+The script handles: environment checks → upstream dependency setup → config generation → build → start → WS connectivity check.
+Day-to-day management reuses `scripts/daemon.sh {start|stop|status|logs}`. See [references/tuitui-usage.md](references/tuitui-usage.md) for details.
+
 ### Claude Code
 
 #### Recommended: `npx skills`

@@ -40,6 +40,20 @@ Claude Code / Codex → 读写你的代码库
 
 请先按你实际使用的 AI Agent 产品选择对应安装方式。
 
+### 推推渠道一键部署（内网 IM）
+
+不依赖 `npx skills` 的独立部署方式（需要 Node >= 20 与 Claude Code CLI）：
+
+```bash
+git clone https://github.com/op7418/Claude-to-IM-skill.git
+cd Claude-to-IM-skill
+CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<机器人名> \
+  bash scripts/install-tuitui.sh --auto-approve --workdir /data/agent-workspace
+```
+
+脚本自动完成：环境检查 → 上游依赖准备 → 配置生成 → 构建 → 启动 → 校验 WS 连接。
+日常管理复用 `scripts/daemon.sh {start|stop|status|logs}`。详见 [references/tuitui-usage.md](references/tuitui-usage.md)。
+
 ### Claude Code
 
 #### 推荐：`npx skills`
