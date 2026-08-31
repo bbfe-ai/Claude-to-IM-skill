@@ -40,6 +40,21 @@ bash scripts/daemon.sh logs 100   # 最近 100 行日志
 bash scripts/doctor.sh            # 诊断
 ```
 
+### systemd 开机自启（推荐生产形态）
+
+```bash
+sudo bash scripts/enable-systemd-tuitui.sh        # 注册为 systemd 服务并开机自启（默认服务名 claude-to-im-tuitui）
+sudo bash scripts/enable-systemd-tuitui.sh my-tuitui   # 自定义服务名
+systemctl status claude-to-im-tuitui              # 状态
+journalctl -u claude-to-im-tuitui -f              # 实时日志
+systemctl disable claude-to-im-tuitui             # 关闭开机自启
+```
+
+脚本会自动：检查前置 → 停掉 daemon.sh 管理的旧实例（避免双连接）→ 写 `/etc/systemd/system/<服务名>.service`
+（以当前用户运行，`Restart=on-failure` 崩溃自动拉起）→ enable+start → 校验 WS 连接。
+
+**说明：daemon 监听 0 个端口**——纯出站连接（WSS/HTTP 到推推），无任何入站监听，系统里不会多出端口。
+
 ## 三、配置项（config.env）
 
 | 变量 | 必填 | 默认 | 说明 |
