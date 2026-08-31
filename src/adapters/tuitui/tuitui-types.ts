@@ -38,6 +38,8 @@ export interface ParsedChatMessage {
   text: string;
   imageUrls: string[];
   file?: { name?: string; url?: string };
+  /** 多文件消息（联调实测 data.files 数组） */
+  files?: Array<{ name?: string; url?: string }>;
   /** 群聊:@提及命中; 单聊: true */
   mentioned: boolean;
 }
@@ -94,6 +96,7 @@ export function parseWsFrame(raw: string, botAppid: string, botName: string): Pa
     }
     const imageUrls: string[] = [];
     let file: { name?: string; url?: string } | undefined;
+    let files: Array<{ name?: string; url?: string }> | undefined;
     if (msgType === 'image') {
       if (Array.isArray(data.images)) {
         imageUrls.push(...data.images.filter((i): i is string => typeof i === 'string'));
@@ -103,6 +106,14 @@ export function parseWsFrame(raw: string, botAppid: string, botName: string): Pa
         ? (data.file as Record<string, unknown>) : undefined;
       if (f && typeof f.url === 'string') {
         file = { url: f.url, name: typeof f.name === 'string' ? f.name : undefined };
+      }
+      // 联调实测: 多文件消息用 data.files 数组（含单文件场景）
+      if (Array.isArray(data.files)) {
+        const list = data.files
+          .filter((it): it is Record<string, unknown> => !!it && typeof it === 'object')
+          .map((it) => ({ url: typeof it.url === 'string' ? it.url : '', name: typeof it.name === 'string' ? it.name : undefined }))
+          .filter((it) => it.url !== '');
+        if (list.length > 0) files = list;
       }
     } else if (msgType === 'mixed') {
       // mixed 消息图片/文件平铺在事件顶层（Rust serde flatten extra），fallback data.images
@@ -130,6 +141,7 @@ export function parseWsFrame(raw: string, botAppid: string, botName: string): Pa
         text,
         imageUrls,
         file,
+        files,
         mentioned,
       },
     };
@@ -138,10 +150,16 @@ export function parseWsFrame(raw: string, botAppid: string, botName: string): Pa
   // 非 chat 事件: 尝试提取权限卡片回调（perm: allow|allow_session|deny）
   const callbackData = findPermCallbackData(body);
   if (callbackData) {
+    // 联调实测: 回调帧的 msgid 在 data.message.msgid（回执原卡片），data.msgid 兜底
+    const messageObj = data.message && typeof data.message === 'object'
+      ? (data.message as Record<string, unknown>) : undefined;
+    const msgId = typeof messageObj?.msgid === 'string'
+      ? messageObj.msgid
+      : typeof data.msgid === 'string' ? data.msgid : undefined;
     return {
       eventId,
       callback: {
-        msgId: typeof data.msgid === 'string' ? data.msgid : undefined,
+        msgId,
         callbackData,
         senderId,
         senderName,
@@ -169,27 +187,40 @@ export function checkMentioned(
 }
 
 export function findPermCallbackData(body: Record<string, unknown>): string | undefined {
-  // 结构化候选路径（Rust 版把未知字段 flatten 到 body 顶层）
+  // 结构化候选路径（联调实测: 回调帧为 body.data.message.action[]，value 在数组元素里；
+  // Rust 版未知字段 flatten 到 body 顶层，故保留 body 级候选）
   const candidates: string[][] = [
+    ['data', 'message', 'action', 'value'],
+    ['data', 'message', 'action', 'name'],
+    ['message', 'action', 'value'],
     ['action', 'value'],
     ['action', 'name'],
-    ['message', 'action', 'value'],
-    ['message', 'value'],
   ];
   for (const path of candidates) {
-    let cur: unknown = body;
-    let ok = true;
-    for (const key of path) {
-      if (cur && typeof cur === 'object' && key in (cur as Record<string, unknown>)) {
-        cur = (cur as Record<string, unknown>)[key];
-      } else {
-        ok = false;
-        break;
-      }
-    }
-    if (ok && typeof cur === 'string' && PERM_RE.test(cur)) return cur;
+    const cur = lookupPath(body, path);
+    if (typeof cur === 'string' && PERM_RE.test(cur)) return cur;
   }
   // 兜底: 全量序列化扫描（联调期未知字段布局的防御）
   const scanned = JSON.stringify(body).match(/perm:(allow|allow_session|deny):[A-Za-z0-9_-]+/);
   return scanned ? scanned[0] : undefined;
+}
+
+/** 按路径取对象字段，中间值若是数组则逐个元素尝试（action 数组场景）。 */
+function lookupPath(root: unknown, path: string[]): unknown {
+  let cur: unknown = root;
+  for (const key of path) {
+    if (Array.isArray(cur)) {
+      let found: unknown = undefined;
+      for (const item of cur) {
+        const v = lookupPath(item, [key]);
+        if (v !== undefined) { found = v; break; }
+      }
+      cur = found;
+    } else if (cur && typeof cur === 'object' && key in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return cur;
 }

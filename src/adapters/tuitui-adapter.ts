@@ -156,10 +156,16 @@ export class TuituiAdapter extends BaseChannelAdapter {
       for (const url of chat.imageUrls.slice(0, 9)) {
         const att = await downloadToAttachment(url, undefined);
         if (att) attachments.push(att);
+        else console.warn(`[tuitui-adapter] 图片下载失败: ${url.slice(0, 200)}`);
       }
-      if (chat.file?.url) {
-        const att = await downloadToAttachment(chat.file.url, chat.file.name);
+      const fileList = chat.files && chat.files.length > 0
+        ? chat.files
+        : chat.file ? [chat.file] : [];
+      for (const f of fileList) {
+        if (!f.url) continue;
+        const att = await downloadToAttachment(f.url, f.name);
         if (att) attachments.push(att);
+        else console.warn(`[tuitui-adapter] 文件下载失败: ${f.url.slice(0, 200)}`);
       }
       if (attachments.length === 0) attachments = undefined;
     }

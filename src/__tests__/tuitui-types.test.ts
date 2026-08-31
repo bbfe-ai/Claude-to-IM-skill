@@ -201,3 +201,65 @@ describe('findPermCallbackData', () => {
     assert.equal(data, 'perm:deny:req-9');
   });
 });
+
+describe('parseWsFrame 联调校准（2026-08-31 真实帧）', () => {
+  it('parses real interactive_action callback frame (data.message.action[] + data.message.msgid)', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-real',
+      body: {
+        event: 'interactive_action',
+        user_account: 'baofuen',
+        user_name: '包富恩',
+        data: {
+          message: {
+            msgid: '7680112677696077537',
+            id: 'perm_toolu_50eaa542cedb4943becce1ec',
+            action: [{ text: 'Allow', name: 'perm_0_toolu_50eaa542cedb4943becce1ec', value: 'perm:allow:toolu_50eaa542cedb4943becce1ec', color: 'FFFFFF', bgcolor: '27AE60', type: '' }],
+          },
+        },
+      },
+    });
+    const frame = parseWsFrame(raw, '3433149389', 'Claude助手');
+    assert.ok(frame.callback);
+    assert.equal(frame.callback!.callbackData, 'perm:allow:toolu_50eaa542cedb4943becce1ec');
+    assert.equal(frame.callback!.msgId, '7680112677696077537');
+  });
+
+  it('extracts multiple files from data.files array', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-files',
+      body: {
+        event: 'single_chat', user_account: 'u1', msgtype: 'file',
+        data: {
+          msgid: 'm9', msg_type: 'file',
+          file: { name: 'a.md', url: 'https://cdn.example.com/a.md', file_id: 'f1' },
+          files: [
+            { name: 'a.md', url: 'https://cdn.example.com/a.md', file_id: 'f1' },
+            { name: 'b.md', url: 'https://cdn.example.com/b.md', file_id: 'f2' },
+          ],
+        },
+      },
+    });
+    const frame = parseWsFrame(raw, 'bot-appid', '助手');
+    assert.ok(frame.chat);
+    assert.equal(frame.chat!.files?.length, 2);
+    assert.equal(frame.chat!.files![1]!.name, 'b.md');
+    assert.equal(frame.chat!.file?.url, 'https://cdn.example.com/a.md');
+  });
+});
+
+describe('findPermCallbackData 联调校准', () => {
+  it('finds perm: value inside data.message.action array elements', () => {
+    const data = findPermCallbackData({
+      event: 'interactive_action',
+      data: {
+        message: {
+          action: [
+            { text: 'Deny', name: 'perm_2_x', value: 'perm:deny:req-77', type: '' },
+          ],
+        },
+      },
+    });
+    assert.equal(data, 'perm:deny:req-77');
+  });
+});
