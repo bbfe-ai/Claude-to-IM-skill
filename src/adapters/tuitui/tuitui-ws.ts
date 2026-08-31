@@ -13,6 +13,9 @@ export function backoffDelayMs(attempt: number): number {
 
 export type HandshakeFailure = 'auth' | 'retryable';
 
+/** 联调/排查用: CTI_TUITUI_DEBUG=true 时打印原始 WS 帧（含用户内容，默认关闭）。 */
+const DEBUG_FRAMES = process.env.CTI_TUITUI_DEBUG === 'true';
+
 /** ws 包在 HTTP 握手失败时抛 "Unexpected server response: <status>"。 */
 export function classifyWsError(err: unknown): HandshakeFailure {
   const msg = err instanceof Error ? err.message : String(err);
@@ -85,7 +88,14 @@ export class TuituiWsClient {
     });
 
     ws.on('message', (dataRaw) => {
-      const frame = parseWsFrame(dataRaw.toString(), this.creds.appid, this.creds.botName);
+      const raw = dataRaw.toString();
+      const frame = parseWsFrame(raw, this.creds.appid, this.creds.botName);
+      // 联调/排查诊断: 仅在 CTI_TUITUI_DEBUG=true 时打印原始帧（含用户内容，默认不输出）
+      if (DEBUG_FRAMES && frame.chat && (frame.chat.imageUrls.length > 0 || frame.chat.file || frame.chat.msgType !== 'text')) {
+        console.log(`[tuitui-ws] media chat frame: ${raw.slice(0, 2000)}`);
+      } else if (DEBUG_FRAMES && frame.callback) {
+        console.log(`[tuitui-ws] callback frame: ${raw.slice(0, 2000)}`);
+      }
       // 任何事件（含 keepalive）都必须在 3 秒窗口内 ACK
       if (frame.eventId && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ ack: frame.eventId }));

@@ -18,7 +18,7 @@
 set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CTI_HOME="${CTI_HOME:-$HOME/.claude-to-im}"
+export CTI_HOME="${CTI_HOME:-$HOME/.claude-to-im}"
 CONFIG_FILE="$CTI_HOME/config.env"
 BRIDGE_LOG="$CTI_HOME/logs/bridge.log"
 
@@ -104,8 +104,8 @@ ask_cred CTI_TUITUI_SECRET "推推 Secret" "${CTI_TUITUI_SECRET:-}"
 ask_cred CTI_TUITUI_BOT_NAME "机器人名" "${CTI_TUITUI_BOT_NAME:-}"
 chmod 600 "$CONFIG_FILE"
 
-grep -q "^CTI_TUITUI_APPID=" "$CONFIG_FILE" || { echo "错误: config.env 缺少 CTI_TUITUI_APPID"; exit 1; }
-grep -q "^CTI_TUITUI_SECRET=" "$CONFIG_FILE" || { echo "错误: config.env 缺少 CTI_TUITUI_SECRET"; exit 1; }
+grep -q "^CTI_TUITUI_APPID=." "$CONFIG_FILE" || { echo "错误: config.env 缺少 CTI_TUITUI_APPID"; exit 1; }
+grep -q "^CTI_TUITUI_SECRET=." "$CONFIG_FILE" || { echo "错误: config.env 缺少 CTI_TUITUI_SECRET"; exit 1; }
 
 # ── 4. 构建 ──
 echo "==> 构建 daemon bundle..."

@@ -49,7 +49,7 @@ bash scripts/doctor.sh            # 诊断
 | `CTI_TUITUI_SECRET` | 是 | — | 推推应用 Secret（chmod 600，日志自动脱敏） |
 | `CTI_TUITUI_BOT_NAME` | 否 | — | 机器人名，群聊 @提及检测 |
 | `CTI_TUITUI_API_BASE` | 否 | `https://alarm.im.qihoo.net` | 发送 API 基础地址 |
-| `CTI_TUITUI_MEDIA_ENABLED` | 否 | `false` | 入站图片/文件下载（=true 时落盘 `工作目录/.codepilot-uploads/`） |
+| `CTI_TUITUI_MEDIA_ENABLED` | 否 | `false` | 入站图片/文件下载（=true 时落盘 `工作目录/.codepilot-uploads/`；`install-tuitui.sh` 一键部署会写入 `true`） |
 | `CTI_TUITUI_CARD_URL` | 否 | `https://intent-os.qihoo.net` | 权限卡片跳转地址 |
 | `CTI_AUTO_APPROVE` | 否 | `false` | `true` = 工具权限自动审批，不弹卡片 |
 | `CTI_DEFAULT_WORKDIR` | 否 | `cwd` | Claude 工作目录 |
@@ -75,9 +75,9 @@ bash scripts/doctor.sh            # 诊断
 |---|---|
 | 日志无 `[tuitui-ws] 连接成功` | `daemon.sh logs 50` 看预检错误；401/403 = App ID/Secret 错误；超时 = 网络不通 `alarm.im.qihoo.net` |
 | 群聊不响应 | 必须 @机器人；检查 `CTI_TUITUI_BOT_NAME` 与推推里的机器人名一致 |
-| 权限卡片点了没反应 | 回看日志 `callback frame`；msgid 必须与卡片发送响应一致（联调已验证） |
-| 图片没到 Claude | 确认 `CTI_TUITUI_MEDIA_ENABLED=true`；日志 `media chat frame` 看帧类型；纯图片消息应走 `msgtype:"image"` |
-| 启动被 15 秒预检阻塞 | WS 不可达时启动会等待预检超时，属预期 |
+| 权限卡片点了没反应 | 设置 `CTI_TUITUI_DEBUG=true` 后回看日志 `callback frame`；msgid 必须与卡片发送响应一致（联调已验证） |
+| 图片没到 Claude | 确认 `CTI_TUITUI_MEDIA_ENABLED=true`；设 `CTI_TUITUI_DEBUG=true` 后日志 `media chat frame` 看帧类型；纯图片消息应走 `msgtype:"image"`；下载失败会收到「Failed to download N attachment(s)」回复并可查 `下载失败` 日志 |
+| 启动后 WS 连不上 | 由客户端指数退避重连（2s→30s，最多 100 次）；401/403 = App ID/Secret 错误会熔断并停止重连 |
 
 ## 七、生产部署（Linux Host 示例）
 

@@ -88,3 +88,33 @@ describe('buildCardFromInlineButtons 中文化', () => {
     assert.equal(card.action[2]!.text, '拒绝');
   });
 });
+
+describe('TuituiAdapter 媒体失败透传', () => {
+  it('surfaces download failures via raw flag instead of dropping the message', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response('err', { status: 404 })) as typeof fetch;
+    try {
+      setupContext(createMockStore({
+        bridge_tuitui_appid: 'app-1',
+        bridge_tuitui_secret: 'sec-1',
+        bridge_tuitui_media_enabled: 'true',
+      }));
+      const adapter = new TuituiAdapter();
+      await (adapter as any).handleFrame({
+        eventId: 'evt-1',
+        chat: {
+          msgId: 'm1', senderId: 'u1', senderName: '用户',
+          msgType: 'image', text: '', imageUrls: ['https://cdn.example.com/a.jpg'],
+          mentioned: true,
+        },
+      });
+      const inbound = await adapter.consumeOne();
+      assert.ok(inbound);
+      assert.equal((inbound?.raw as { attachmentDownloadFailed?: boolean })?.attachmentDownloadFailed, true);
+      assert.equal((inbound?.raw as { failedCount?: number })?.failedCount, 1);
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete (globalThis as Record<string, unknown>)['__bridge_context__'];
+    }
+  });
+});

@@ -7,7 +7,7 @@ import type {
 import { BaseChannelAdapter, registerAdapterFactory } from 'claude-to-im/src/lib/bridge/channel-adapter.js';
 import { getBridgeContext } from 'claude-to-im/src/lib/bridge/context.js';
 import { downloadToAttachment, modifyInteractive, sendInteractive, sendText } from './tuitui/tuitui-api.js';
-import { TuituiWsClient, testTuituiConnection } from './tuitui/tuitui-ws.js';
+import { TuituiWsClient } from './tuitui/tuitui-ws.js';
 import { decodeTuituiChatId, encodeTuituiChatId, type TuituiChatKind } from './tuitui/tuitui-ids.js';
 import {
   DEFAULT_API_ENDPOINT, DEFAULT_CARD_URL,
@@ -45,12 +45,9 @@ export class TuituiAdapter extends BaseChannelAdapter {
       console.log('[tuitui-adapter] 未配置推推凭据（bridge_tuitui_appid/secret），adapter 空转');
       return;
     }
-    const preflight = await testTuituiConnection(creds);
-    if (!preflight.ok) {
-      console.error(`[tuitui-adapter] 连接预检失败: ${preflight.error}`);
-      return;
-    }
     this._running = true;
+    // 首次连接失败不阻塞启动——TuituiWsClient 的退避重连兜底；
+    // 认证失败（401/403）由客户端熔断停止重连并打明确错误日志
     this.client = new TuituiWsClient(creds, (frame) => {
       this.handleFrame(frame);
     });
@@ -108,7 +105,9 @@ export class TuituiAdapter extends BaseChannelAdapter {
       });
       return result.ok ? { ok: true, messageId: result.messageId } : { ok: false, error: result.error };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      // 兜底脱敏: postJson 已吞掉大部分错误，此处双保险防止凭据泄漏
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: msg.replaceAll(creds.appid, '***').replaceAll(creds.secret, '***') };
     }
   }
 
@@ -151,12 +150,13 @@ export class TuituiAdapter extends BaseChannelAdapter {
     const chatId = encodeTuituiChatId(creds.appid, kind, target);
 
     let attachments: FileAttachment[] | undefined;
+    let failedCount = 0;
     if (creds.mediaEnabled) {
       attachments = [];
       for (const url of chat.imageUrls.slice(0, 9)) {
         const att = await downloadToAttachment(url, undefined);
         if (att) attachments.push(att);
-        else console.warn(`[tuitui-adapter] 图片下载失败: ${url.slice(0, 200)}`);
+        else { failedCount++; console.warn(`[tuitui-adapter] 图片下载失败: ${url.slice(0, 200)}`); }
       }
       const fileList = chat.files && chat.files.length > 0
         ? chat.files
@@ -165,13 +165,24 @@ export class TuituiAdapter extends BaseChannelAdapter {
         if (!f.url) continue;
         const att = await downloadToAttachment(f.url, f.name);
         if (att) attachments.push(att);
-        else console.warn(`[tuitui-adapter] 文件下载失败: ${f.url.slice(0, 200)}`);
+        else { failedCount++; console.warn(`[tuitui-adapter] 文件下载失败: ${f.url.slice(0, 200)}`); }
       }
       if (attachments.length === 0) attachments = undefined;
     }
 
     const text = chat.text.trim();
-    if (!text && !attachments) return null;
+    if (!text && !attachments && failedCount === 0) return null;
+
+    // 对齐 weixin adapter: 下载失败的消息不静默丢弃，透传 raw 标记让 bridge 回复失败提示
+    const raw = failedCount > 0 && attachments === undefined && !text
+      ? {
+          appid: creds.appid,
+          originalMessage: chat,
+          attachmentDownloadFailed: true,
+          failedCount,
+          failedLabel: 'attachment(s)',
+        }
+      : chat;
 
     return {
       messageId: chat.msgId ?? `tuitui_${chat.senderId}_${Date.now()}`,
@@ -183,7 +194,7 @@ export class TuituiAdapter extends BaseChannelAdapter {
       },
       text,
       timestamp: Date.now(),
-      raw: chat,
+      raw,
       attachments,
     };
   }
