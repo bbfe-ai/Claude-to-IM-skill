@@ -21,6 +21,7 @@ export class TuituiAdapter extends BaseChannelAdapter {
   private client: TuituiWsClient | null = null;
   private queue: InboundMessage[] = [];
   private waiters: Array<(msg: InboundMessage | null) => void> = [];
+  private frameChain: Promise<void> = Promise.resolve();
 
   private credentials(): TuituiCredentials | null {
     const { store } = getBridgeContext();
@@ -51,10 +52,7 @@ export class TuituiAdapter extends BaseChannelAdapter {
     }
     this._running = true;
     this.client = new TuituiWsClient(creds, (frame) => {
-      // 单帧处理失败不能崩 daemon——记日志即可，WS 连接继续
-      this.handleFrame(frame).catch((err) => {
-        console.error('[tuitui-adapter] handleFrame error:', err instanceof Error ? err.message : err);
-      });
+      this.handleFrame(frame);
     });
     this.client.start();
   }
@@ -124,7 +122,18 @@ export class TuituiAdapter extends BaseChannelAdapter {
     this.queue.push(message);
   }
 
-  private async handleFrame(frame: ParsedFrame): Promise<void> {
+  private handleFrame(frame: ParsedFrame): Promise<void> {
+    // 串行化: 帧内媒体下载是 await, 必须保证帧间顺序（先图后文不交错）
+    const next = this.frameChain.then(async () => {
+      await this.processFrame(frame);
+    });
+    this.frameChain = next.catch((err) => {
+      console.error('[tuitui-adapter] handleFrame error:', err instanceof Error ? err.message : err);
+    });
+    return this.frameChain;
+  }
+
+  private async processFrame(frame: ParsedFrame): Promise<void> {
     if (frame.chat && frame.chat.mentioned) {
       const msg = await this.chatToInbound(frame.chat);
       if (msg) this.enqueue(msg);
@@ -196,6 +205,7 @@ export class TuituiAdapter extends BaseChannelAdapter {
 
   /** 按钮点击后把卡片更新为已批准/已拒绝（fire-and-forget，失败仅记日志）。 */
   private async updateCardAfterCallback(callback: { msgId?: string; callbackData?: string; groupId?: string; senderId: string }): Promise<void> {
+    if (!callback.callbackData?.startsWith('perm:')) return;
     const creds = this.credentials();
     if (!creds || !callback.msgId) return;
     const kind: TuituiChatKind = callback.groupId ? 'group' : 'single';

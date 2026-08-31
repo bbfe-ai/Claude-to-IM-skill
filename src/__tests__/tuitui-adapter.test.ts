@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import type { BridgeStore } from 'claude-to-im/src/lib/bridge/host.js';
 import { initBridgeContext } from 'claude-to-im/src/lib/bridge/context.js';
-import { buildCardFromInlineButtons, buildDecisionCard, stripHtml } from '../adapters/tuitui-adapter.js';
+import { TuituiAdapter, buildCardFromInlineButtons, buildDecisionCard, stripHtml } from '../adapters/tuitui-adapter.js';
 
 function createMockStore(settings: Record<string, string> = {}) {
   return { getSetting: (key: string) => settings[key] ?? null };
@@ -54,5 +54,15 @@ describe('buildDecisionCard', () => {
 describe('stripHtml', () => {
   it('strips HTML tags but keeps the visible text', () => {
     assert.equal(stripHtml('<pre>a &amp; b</pre>'), 'a & b');
+  });
+});
+
+describe('TuituiAdapter start', () => {
+  it('idles without credentials without throwing', async () => {
+    setupContext(createMockStore({}));
+    const adapter = new TuituiAdapter();
+    await adapter.start();
+    assert.equal(adapter.isRunning(), false);
+    delete (globalThis as Record<string, unknown>)['__bridge_context__'];
   });
 });
