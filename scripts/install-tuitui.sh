@@ -66,7 +66,7 @@ elif [ -d "$UPSTREAM_DIR" ]; then
   (cd "$SKILL_DIR" && npm install)
 else
   echo "     克隆上游 claude-to-im 依赖 $UPSTREAM_DIR ..."
-  git clone --depth 1 https://github.com/op7418/Claude-to-IM "$UPSTREAM_DIR"
+  git clone --depth 1 "${CTI_UPSTREAM_REPO:-https://github.com/op7418/Claude-to-IM}" "$UPSTREAM_DIR"
   (cd "$SKILL_DIR" && npm install)
 fi
 
