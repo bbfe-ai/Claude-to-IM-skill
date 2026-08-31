@@ -10,6 +10,10 @@ describe('backoffDelayMs', () => {
     assert.equal(backoffDelayMs(5), 30_000);
     assert.equal(backoffDelayMs(99), 30_000);
   });
+  it('handles attempt 0 and negative attempts', () => {
+    assert.equal(backoffDelayMs(0), 1_000);
+    assert.equal(backoffDelayMs(-3), 1_000);
+  });
 });
 
 describe('classifyWsError', () => {
@@ -22,10 +26,17 @@ describe('classifyWsError', () => {
     assert.equal(classifyWsError(new Error('connect ECONNREFUSED')), 'retryable');
     assert.equal(classifyWsError('string error'), 'retryable');
   });
+  it('classifies other HTTP statuses as retryable', () => {
+    assert.equal(classifyWsError(new Error('Unexpected server response: 404')), 'retryable');
+    assert.equal(classifyWsError(new Error('Unexpected server response: 500')), 'retryable');
+  });
 });
 
 describe('wsUrl', () => {
   it('builds the auth query from appid and secret', () => {
     assert.equal(wsUrl('app-1', 'sec-1'), 'wss://alarm.im.qihoo.net/callback/ws?auth=app-1.sec-1');
+  });
+  it('URL-encodes special characters in appid/secret', () => {
+    assert.equal(wsUrl('app id', 's/e=c'), 'wss://alarm.im.qihoo.net/callback/ws?auth=app%20id.s%2Fe%3Dc');
   });
 });

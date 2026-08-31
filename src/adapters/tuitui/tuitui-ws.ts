@@ -35,7 +35,7 @@ export async function testTuituiConnection(
       if (!done) { done = true; clearTimeout(timer); ws.close(); resolve(result); }
     };
     const timer = setTimeout(() => {
-      finish({ ok: false, error: 'WebSocket 握手超时（15 秒）' });
+      finish({ ok: false, error: `WebSocket 握手超时（${timeoutMs / 1000} 秒）` });
       ws.terminate();
     }, timeoutMs);
     const ws = new WebSocket(wsUrl(creds.appid, creds.secret));
@@ -94,6 +94,7 @@ export class TuituiWsClient {
     });
 
     ws.on('error', (err) => {
+      if (this.ws !== ws) return;
       if (classifyWsError(err) === 'auth') {
         console.error('[tuitui-ws] 鉴权失败（401/403），停止重连');
         this.stopping = true;
@@ -104,7 +105,7 @@ export class TuituiWsClient {
     });
 
     ws.on('close', () => {
-      if (this.stopping) return;
+      if (this.ws !== ws || this.stopping) return;
       this.attempt += 1;
       if (this.attempt >= MAX_RECONNECT_ATTEMPTS) {
         console.error(`[tuitui-ws] 达到最大重连次数（${MAX_RECONNECT_ATTEMPTS}），放弃`);
