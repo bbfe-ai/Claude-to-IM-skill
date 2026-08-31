@@ -13,11 +13,11 @@ BRIDGE_LOG="$CTI_HOME/logs/bridge.log"
 PID_FILE="$CTI_HOME/runtime/bridge.pid"
 UNIT_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-# 非 root 时用 sudo 重跑自己（保留参数与环境配置）
+# 非 root 时用 sudo 重跑自己（保留参数、环境配置与 PATH——node 可能在 nvm 等非标准路径）
 ensure_root() {
   if [ "$(id -u)" -ne 0 ]; then
     echo "需要 root 权限，使用 sudo 重新运行..."
-    exec sudo env CTI_SKILL_DIR="$SKILL_DIR" CTI_CTI_HOME="$CTI_HOME" \
+    exec sudo env PATH="$PATH" CTI_SKILL_DIR="$SKILL_DIR" CTI_CTI_HOME="$CTI_HOME" \
       CTI_SYSTEMD_USER="$SERVICE_USER" CTI_SYSTEMD_SERVICE="$SERVICE_NAME" \
       bash "$0" "$SERVICE_NAME"
   fi
