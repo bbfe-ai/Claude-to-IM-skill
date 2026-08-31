@@ -276,6 +276,25 @@ function findAllInPath(): string[] {
 }
 
 /**
+ * 在 PATH 中解析 claude 可执行文件（判断 SDK 是否需要显式指定 CLI 路径）。
+ * 复用 isExecutable 检查；Unix 直接遍历 PATH，Windows 用 where。
+ */
+function resolveOnPath(name: string): string | undefined {
+  if (process.platform === 'win32') {
+    try {
+      const out = execSync(`where ${name}`, { encoding: 'utf-8', timeout: 3000 }).trim();
+      return out.split('\n')[0] || undefined;
+    } catch { return undefined; }
+  }
+  for (const dir of (process.env.PATH || '').split(':')) {
+    if (!dir) continue;
+    const p = `${dir}/${name}`;
+    if (isExecutable(p)) return p;
+  }
+  return undefined;
+}
+
+/**
  * Resolve the path to the `claude` CLI executable.
  *
  * Priority:
@@ -508,7 +527,10 @@ export class SDKLLMProvider implements LLMProvider {
                   };
                 },
             };
-            if (cliPath) {
+            // 实测（2026-08-31）: 显式指定 pathToClaudeCodeExecutable 会让 SDK 判定
+            // CLI "Not logged in" 并以 code 1 退出（登录探测走不同凭据路径）。
+            // 仅当 PATH 解析不到 claude 时才显式指定，避免破坏正常登录态。
+            if (cliPath && !resolveOnPath('claude')) {
               queryOptions.pathToClaudeCodeExecutable = cliPath;
             }
 
