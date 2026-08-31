@@ -42,6 +42,9 @@ Type=simple
 User=${SERVICE_USER}
 Environment=CTI_HOME=${CTI_HOME}
 Environment=PATH=${SERVICE_PATH}
+# 清空会话级模型覆盖（settings.json 注入的 ANTHROPIC_MODEL 会让 CLI -p 报 unrecognized_model 后退出）
+Environment=ANTHROPIC_MODEL=
+Environment=CLAUDE_CODE_SUBAGENT_MODEL=
 WorkingDirectory=${SKILL_DIR}
 ExecStart=${NODE_BIN} dist/daemon.mjs
 Restart=on-failure

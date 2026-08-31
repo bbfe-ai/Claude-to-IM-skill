@@ -59,6 +59,9 @@ clean_env() {
         while IFS='=' read -r name _; do
           case "$name" in OPENAI_*) unset "$name" 2>/dev/null || true ;; esac
         done < <(env)
+        # 会话级模型覆盖会导致 CLI -p 模式 unrecognized_model 退出（settings.json 注入）
+        unset ANTHROPIC_MODEL 2>/dev/null || true
+        unset CLAUDE_CODE_SUBAGENT_MODEL 2>/dev/null || true
         ;;
       auto)
         # Keep both ANTHROPIC_* and OPENAI_* for auto mode
