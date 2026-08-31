@@ -40,18 +40,21 @@ bash scripts/daemon.sh logs 100   # 最近 100 行日志
 bash scripts/doctor.sh            # 诊断
 ```
 
-### systemd 开机自启（推荐生产形态）
+### systemd 服务（推荐生产形态，创建/启动/关闭三脚本）
 
 ```bash
-sudo bash scripts/enable-systemd-tuitui.sh        # 注册为 systemd 服务并开机自启（默认服务名 claude-to-im-tuitui）
-sudo bash scripts/enable-systemd-tuitui.sh my-tuitui   # 自定义服务名
-systemctl status claude-to-im-tuitui              # 状态
-journalctl -u claude-to-im-tuitui -f              # 实时日志
-systemctl disable claude-to-im-tuitui             # 关闭开机自启
+bash scripts/tuitui-service-create.sh              # 创建服务: 注册 + 开机自启 + 首次启动（默认服务名 claude-to-im-tuitui）
+bash scripts/tuitui-service-start.sh               # 启动服务
+bash scripts/tuitui-service-stop.sh                # 关闭服务
+bash scripts/tuitui-service-create.sh my-tuitui    # 自定义服务名（三个脚本同一参数）
+systemctl status claude-to-im-tuitui               # 状态
+journalctl -u claude-to-im-tuitui -f               # 实时日志
+systemctl disable claude-to-im-tuitui              # 关闭开机自启（服务仍可用 start 拉起）
 ```
 
-脚本会自动：检查前置 → 停掉 daemon.sh 管理的旧实例（避免双连接）→ 写 `/etc/systemd/system/<服务名>.service`
-（以当前用户运行，`Restart=on-failure` 崩溃自动拉起）→ enable+start → 校验 WS 连接。
+创建脚本会自动：检查前置（需先跑过 `install-tuitui.sh`）→ 停掉 daemon.sh 管理的旧实例（避免双连接）→
+写 `/etc/systemd/system/<服务名>.service`（以当前用户运行，`Restart=on-failure` 崩溃自动拉起）→ enable+start → 校验 WS 连接。
+非 root 执行时自动 sudo 重跑。
 
 **说明：daemon 监听 0 个端口**——纯出站连接（WSS/HTTP 到推推），无任何入站监听，系统里不会多出端口。
 
