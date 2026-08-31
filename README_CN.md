@@ -1,6 +1,6 @@
 # Claude-to-IM Skill
 
-将 Claude Code / Codex 桥接到 IM 平台 —— 在 Telegram、Discord、飞书、QQ 或微信中与 AI 编程代理对话。
+将 Claude Code / Codex 桥接到 IM 平台 —— 在 Telegram、Discord、飞书、QQ、微信或推推中与 AI 编程代理对话。
 
 [English](README.md)
 
@@ -13,7 +13,7 @@
 本 Skill 运行一个后台守护进程，将你的 IM 机器人连接到 Claude Code 或 Codex 会话。来自 IM 的消息被转发给 AI 编程代理，响应（包括工具调用、权限请求、流式预览）会发回到聊天中。
 
 ```
-你 (Telegram/Discord/飞书/QQ/微信)
+你 (Telegram/Discord/飞书/QQ/微信/推推)
   ↕ Bot API
 后台守护进程 (Node.js)
   ↕ Claude Agent SDK 或 Codex SDK（通过 CTI_RUNTIME 配置）
@@ -22,7 +22,7 @@ Claude Code / Codex → 读写你的代码库
 
 ## 功能特点
 
-- **五大 IM 平台** — Telegram、Discord、飞书、QQ、微信，可任意组合启用
+- **IM 平台** — Telegram、Discord、飞书、QQ、微信、推推，可任意组合启用
 - **交互式配置** — 引导式向导逐步收集 token，附带详细获取说明
 - **权限控制** — 工具调用需要在聊天中通过内联按钮（Telegram/Discord）或文本 `/perm` 命令 / 快捷 `1/2/3` 回复（飞书/QQ/微信）明确批准
 - **流式预览** — 实时查看 Claude 的输出（Telegram 和 Discord 支持）
@@ -191,7 +191,7 @@ claude-to-im setup
 
 向导会引导你完成以下步骤：
 
-1. **选择渠道** — 选择 Telegram、Discord、飞书、QQ、微信，或任意组合
+1. **选择渠道** — 选择 Telegram、Discord、飞书、QQ、微信、推推，或任意组合
 2. **输入凭据** — 向导会详细说明如何获取每个 token、需要开启哪些设置、授予哪些权限
 3. **设置默认值** — 工作目录、模型、模式
 4. **验证** — 立即通过平台 API 验证 token 有效性
@@ -289,6 +289,23 @@ start bridge
 - 语音消息只使用微信自带的语音转文字结果
 - 如果微信没有提供 `voice_item.text`，桥会直接报错，不会自行下载或转写原始语音
 - 权限确认使用文本 `/perm ...` 命令或快捷 `1/2/3` 回复
+
+### 推推 / TuiTui
+
+> 推推是公司内网 IM（alarm.im.qihoo.net）。支持单聊与群聊（群聊需 @机器人），权限确认使用 interactive 卡片按钮，支持入站图片/文件。
+
+1. 获取推推应用的 **App ID** 与 **Secret**（应用管理员处申请）
+2. 配置环境变量（`~/.claude-to-im/config.env`）：
+   - `CTI_TUITUI_APPID` — 推推应用 App ID（必填）
+   - `CTI_TUITUI_SECRET` — 推推应用 Secret（必填）
+   - `CTI_TUITUI_BOT_NAME` — 机器人名，用于群聊 @提及检测
+   - `CTI_TUITUI_API_BASE` — API 基础地址（默认 `https://alarm.im.qihoo.net`）
+   - `CTI_TUITUI_MEDIA_ENABLED` — 是否下载入站图片/文件（默认 false）
+   - `CTI_TUITUI_CARD_URL` — 权限卡片跳转地址（默认 `https://intent-os.qihoo.net`）
+3. `CTI_ENABLED_CHANNELS` 中加入 `tuitui`
+4. 重启 daemon：`/claude-to-im restart`（或 kill 后重新 start）
+
+说明：出站媒体（Claude 回复图片/文件）暂不支持——bridge 框架的消息模型为文本。权限响应超时与其它渠道一致（5 分钟）。
 
 ## 架构
 

@@ -1,7 +1,7 @@
 ---
 name: claude-to-im
 description: |
-  Bridge THIS Claude Code or Codex session to Telegram, Discord, Feishu/Lark, QQ, or WeChat so the
+  Bridge THIS Claude Code or Codex session to Telegram, Discord, Feishu/Lark, QQ, WeChat, or TuiTui so the
   user can chat with Claude from their phone. Use for: setting up, starting, stopping,
   or diagnosing the claude-to-im bridge daemon; forwarding Claude replies to a messaging
   app; any phrase like "claude-to-im", "bridge", "消息推送", "消息转发", "桥接",
@@ -77,12 +77,13 @@ When AskUserQuestion IS available, collect input **one field at a time**. After 
 
 **Step 1 — Choose channels**
 
-Ask which channels to enable (telegram, discord, feishu, qq, weixin). Accept comma-separated input. Briefly describe each:
+Ask which channels to enable (telegram, discord, feishu, qq, weixin, tuitui). Accept comma-separated input. Briefly describe each:
 - **telegram** — Best for personal use. Streaming preview, inline permission buttons.
 - **discord** — Good for team use. Server/channel/user-level access control.
 - **feishu** (Lark) — For Feishu/Lark teams. Streaming cards, tool progress, inline permission buttons.
 - **qq** — QQ C2C private chat only. No inline permission buttons, no streaming preview. Permissions use text `/perm ...` commands.
 - **weixin** — WeChat QR login. Single linked account only; a new login replaces the previous one. No inline permission buttons, no streaming preview. Permissions use text `/perm ...` commands or quick `1/2/3` replies. Voice messages only use WeChat's own speech-to-text text; raw voice audio is not transcribed by the bridge.
+- **tuitui** — Company intranet IM (alarm.im.qihoo.net). Single chats and group chats (bots must be @mentioned in groups). Permission approvals use interactive card buttons. Inbound images/files are downloaded when `CTI_TUITUI_MEDIA_ENABLED=true`; outbound media is not supported.
 
 **Step 2 — Collect tokens per channel**
 
@@ -111,6 +112,15 @@ For each enabled channel, collect one credential at a time. Tell the user where 
   5. Wait for the helper to report success, then confirm that the linked account was saved locally.
   - Explain briefly: the linked Weixin account is stored in `~/.claude-to-im/data/weixin-accounts.json`. Running the helper again replaces the previously linked account.
   - Explain briefly: `CTI_WEIXIN_MEDIA_ENABLED` only controls inbound image/file/video downloads. For voice messages, the bridge only accepts the text returned by WeChat's built-in speech-to-text. If WeChat does not provide a transcript, the bridge replies with an error instead of downloading/transcribing raw audio.
+- **TuiTui**: Collect two required fields, then optional ones:
+  1. TuiTui App ID (required) → confirm
+  2. TuiTui Secret (required) → confirm (masked)
+  - Tell the user: these values are issued by the TuiTui app administrator (company intranet IM at alarm.im.qihoo.net)
+  3. Bot Name (optional, press Enter to skip) — used to detect @mentions in group chats
+  4. API Base (optional, default `https://alarm.im.qihoo.net`) → confirm
+  5. Media Enabled (optional, default false, press Enter to skip) — whether to download inbound images/files
+  6. Card URL (optional, default `https://intent-os.qihoo.net`) — permission card redirect URL
+  - Remind user: TuiTui supports single chats and group chats (bots must be @mentioned in groups). Permission approvals use interactive card buttons. Outbound media (images/files in Claude's replies) is not supported yet.
 
 **Step 3 — General settings**
 

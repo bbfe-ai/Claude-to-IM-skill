@@ -1,6 +1,6 @@
 # Claude-to-IM Skill
 
-Bridge Claude Code / Codex to IM platforms — chat with AI coding agents from Telegram, Discord, Feishu/Lark, QQ, or WeChat.
+Bridge Claude Code / Codex to IM platforms — chat with AI coding agents from Telegram, Discord, Feishu/Lark, QQ, WeChat, or TuiTui.
 
 [中文文档](README_CN.md)
 
@@ -13,7 +13,7 @@ Bridge Claude Code / Codex to IM platforms — chat with AI coding agents from T
 This skill runs a background daemon that connects your IM bots to Claude Code or Codex sessions. Messages from IM are forwarded to the AI coding agent, and responses (including tool use, permission requests, streaming previews) are sent back to your chat.
 
 ```
-You (Telegram/Discord/Feishu/QQ/WeChat)
+You (Telegram/Discord/Feishu/QQ/WeChat/TuiTui)
   ↕ Bot API
 Background Daemon (Node.js)
   ↕ Claude Agent SDK or Codex SDK (configurable via CTI_RUNTIME)
@@ -22,7 +22,7 @@ Claude Code / Codex → reads/writes your codebase
 
 ## Features
 
-- **Five IM platforms** — Telegram, Discord, Feishu/Lark, QQ, WeChat — enable any combination
+- **IM platforms** — Telegram, Discord, Feishu/Lark, QQ, WeChat, TuiTui — enable any combination
 - **Interactive setup** — guided wizard collects tokens with step-by-step instructions
 - **Permission control** — tool calls require explicit approval via inline buttons (Telegram/Discord) or text `/perm` commands / quick `1/2/3` replies (Feishu/QQ/WeChat)
 - **Streaming preview** — see Claude's response as it types (Telegram & Discord)
@@ -191,7 +191,7 @@ claude-to-im setup
 
 The wizard will guide you through:
 
-1. **Choose channels** — pick Telegram, Discord, Feishu, QQ, WeChat, or any combination
+1. **Choose channels** — pick Telegram, Discord, Feishu, QQ, WeChat, TuiTui, or any combination
 2. **Enter credentials** — the wizard explains exactly where to get each token, which settings to enable, and what permissions to grant
 3. **Set defaults** — working directory, model, and mode
 4. **Validate** — tokens are verified against platform APIs immediately
@@ -289,6 +289,23 @@ Additional notes:
 - Voice messages only use WeChat's own built-in speech-to-text text
 - If WeChat does not provide `voice_item.text`, the bridge replies with an error instead of downloading/transcribing raw voice audio
 - Permission approvals use text `/perm ...` commands or quick `1/2/3` replies
+
+### TuiTui / 推推
+
+> TuiTui is the company intranet IM (alarm.im.qihoo.net). Supports single chats and group chats (bots must be @mentioned in groups). Permission approvals use interactive card buttons. Inbound images/files are supported.
+
+1. Get the TuiTui app's **App ID** and **Secret** (request from the app administrator)
+2. Set environment variables in `~/.claude-to-im/config.env`:
+   - `CTI_TUITUI_APPID` — TuiTui app App ID (required)
+   - `CTI_TUITUI_SECRET` — TuiTui app Secret (required)
+   - `CTI_TUITUI_BOT_NAME` — bot name, used to detect @mentions in group chats
+   - `CTI_TUITUI_API_BASE` — API base URL (default `https://alarm.im.qihoo.net`)
+   - `CTI_TUITUI_MEDIA_ENABLED` — whether to download inbound images/files (default false)
+   - `CTI_TUITUI_CARD_URL` — permission card redirect URL (default `https://intent-os.qihoo.net`)
+3. Add `tuitui` to `CTI_ENABLED_CHANNELS`
+4. Restart the daemon: `/claude-to-im restart` (or kill and start again)
+
+Note: outbound media (images/files in Claude's replies) is not supported yet — the bridge framework's message model is text-only. The permission response timeout matches other channels (5 minutes).
 
 ## Architecture
 
