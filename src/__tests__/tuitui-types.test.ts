@@ -124,11 +124,80 @@ describe('parseWsFrame', () => {
     assert.equal(frame.eventId, 'evt-x');
     assert.equal(frame.callback, undefined);
   });
+
+  it('marks group message mentioned by text @botName when at_users is absent', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-g3',
+      body: { event: 'group_chat', user_account: 'u2', group_id: '1234567890', msgtype: 'text', text: '@助手 hi', data: { msgid: 'm5' } },
+    });
+    const frame = parseWsFrame(raw, 'bot-appid', '助手');
+    assert.ok(frame.chat);
+    assert.equal(frame.chat!.mentioned, true);
+  });
+
+  it('recognizes bot in comma-separated string at_users', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-g4',
+      body: { event: 'group_chat', user_account: 'u2', group_id: '1234567890', text: 'hi', at_users: 'user-2,bot-appid', data: { msgid: 'm6' } },
+    });
+    const frame = parseWsFrame(raw, 'bot-appid', '助手');
+    assert.ok(frame.chat);
+    assert.equal(frame.chat!.mentioned, true);
+  });
+
+  it('extracts top-level images and file from mixed messages', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-mix',
+      body: {
+        event: 'single_chat', user_account: 'u1', msgtype: 'mixed', text: '看下这两个文件',
+        images: ['https://c.example.com/x.png'],
+        file: { url: 'https://c.example.com/f.pdf', name: 'f.pdf' },
+        data: { msgid: 'm7', msg_type: 'mixed' },
+      },
+    });
+    const frame = parseWsFrame(raw, 'bot-appid', '助手');
+    assert.ok(frame.chat);
+    assert.ok(frame.chat!.imageUrls.includes('https://c.example.com/x.png'));
+    assert.equal(frame.chat!.file?.url, 'https://c.example.com/f.pdf');
+  });
+
+  it('falls back to data.images for mixed when top-level images are absent', () => {
+    const raw = JSON.stringify({
+      event_id: 'evt-mix2',
+      body: {
+        event: 'single_chat', user_account: 'u1', msgtype: 'mixed', text: '图',
+        data: { msgid: 'm8', msg_type: 'mixed', images: ['https://c.example.com/y.png'] },
+      },
+    });
+    const frame = parseWsFrame(raw, 'bot-appid', '助手');
+    assert.ok(frame.chat);
+    assert.deepEqual(frame.chat!.imageUrls, ['https://c.example.com/y.png']);
+  });
+
+  it('returns eventId null on invalid JSON', () => {
+    const frame = parseWsFrame('not json', 'bot-appid', '助手');
+    assert.deepEqual(frame, { eventId: null });
+  });
+
+  it('returns eventId only when body is missing', () => {
+    const frame = parseWsFrame('{"event_id":"x"}', 'bot-appid', '助手');
+    assert.deepEqual(frame, { eventId: 'x' });
+  });
 });
 
 describe('findPermCallbackData', () => {
   it('falls back to regex scan over serialized body for unknown field layouts', () => {
     const data = findPermCallbackData({ event: 'interactive_action', nested: { deep: 'perm:deny:req-77' } });
     assert.equal(data, 'perm:deny:req-77');
+  });
+
+  it('extracts allow_session from message.action.value path', () => {
+    const data = findPermCallbackData({ event: 'interactive_action', message: { action: { value: 'perm:allow_session:req-8' } } });
+    assert.equal(data, 'perm:allow_session:req-8');
+  });
+
+  it('extracts deny from message.value path', () => {
+    const data = findPermCallbackData({ event: 'interactive_action', message: { value: 'perm:deny:req-9' } });
+    assert.equal(data, 'perm:deny:req-9');
   });
 });
