@@ -32,6 +32,13 @@ export interface Config {
   weixinBaseUrl?: string;
   weixinCdnBaseUrl?: string;
   weixinMediaEnabled?: boolean;
+  // TuiTui
+  tuituiAppId?: string;
+  tuituiSecret?: string;
+  tuituiBotName?: string;
+  tuituiApiBase?: string;
+  tuituiMediaEnabled?: boolean;
+  tuituiCardUrl?: string;
   // Auto-approve all tool permission requests without user confirmation
   autoApprove?: boolean;
 }
@@ -113,6 +120,14 @@ export function loadConfig(): Config {
     weixinMediaEnabled: env.has("CTI_WEIXIN_MEDIA_ENABLED")
       ? env.get("CTI_WEIXIN_MEDIA_ENABLED") === "true"
       : undefined,
+    tuituiAppId: env.get("CTI_TUITUI_APPID") || undefined,
+    tuituiSecret: env.get("CTI_TUITUI_SECRET") || undefined,
+    tuituiBotName: env.get("CTI_TUITUI_BOT_NAME") || undefined,
+    tuituiApiBase: env.get("CTI_TUITUI_API_BASE") || undefined,
+    tuituiMediaEnabled: env.has("CTI_TUITUI_MEDIA_ENABLED")
+      ? env.get("CTI_TUITUI_MEDIA_ENABLED") === "true"
+      : undefined,
+    tuituiCardUrl: env.get("CTI_TUITUI_CARD_URL") || undefined,
     autoApprove: env.get("CTI_AUTO_APPROVE") === "true",
   };
 }
@@ -172,6 +187,13 @@ export function saveConfig(config: Config): void {
   out += formatEnvLine("CTI_WEIXIN_CDN_BASE_URL", config.weixinCdnBaseUrl);
   if (config.weixinMediaEnabled !== undefined)
     out += formatEnvLine("CTI_WEIXIN_MEDIA_ENABLED", String(config.weixinMediaEnabled));
+  out += formatEnvLine("CTI_TUITUI_APPID", config.tuituiAppId);
+  out += formatEnvLine("CTI_TUITUI_SECRET", config.tuituiSecret);
+  out += formatEnvLine("CTI_TUITUI_BOT_NAME", config.tuituiBotName);
+  out += formatEnvLine("CTI_TUITUI_API_BASE", config.tuituiApiBase);
+  if (config.tuituiMediaEnabled !== undefined)
+    out += formatEnvLine("CTI_TUITUI_MEDIA_ENABLED", String(config.tuituiMediaEnabled));
+  out += formatEnvLine("CTI_TUITUI_CARD_URL", config.tuituiCardUrl);
 
   fs.mkdirSync(CTI_HOME, { recursive: true });
   const tmpPath = CONFIG_PATH + ".tmp";
@@ -266,6 +288,22 @@ export function configToSettings(config: Config): Map<string, string> {
     m.set("bridge_weixin_base_url", config.weixinBaseUrl);
   if (config.weixinCdnBaseUrl)
     m.set("bridge_weixin_cdn_base_url", config.weixinCdnBaseUrl);
+
+  // ── TuiTui ──
+  // Upstream keys: bridge_tuitui_enabled, bridge_tuitui_appid,
+  //   bridge_tuitui_secret, bridge_tuitui_bot_name, bridge_tuitui_api_base,
+  //   bridge_tuitui_media_enabled, bridge_tuitui_card_url
+  m.set(
+    "bridge_tuitui_enabled",
+    config.enabledChannels.includes("tuitui") ? "true" : "false"
+  );
+  if (config.tuituiAppId) m.set("bridge_tuitui_appid", config.tuituiAppId);
+  if (config.tuituiSecret) m.set("bridge_tuitui_secret", config.tuituiSecret);
+  if (config.tuituiBotName) m.set("bridge_tuitui_bot_name", config.tuituiBotName);
+  if (config.tuituiApiBase) m.set("bridge_tuitui_api_base", config.tuituiApiBase);
+  if (config.tuituiMediaEnabled !== undefined)
+    m.set("bridge_tuitui_media_enabled", String(config.tuituiMediaEnabled));
+  if (config.tuituiCardUrl) m.set("bridge_tuitui_card_url", config.tuituiCardUrl);
 
   // ── Defaults ──
   // Upstream keys: bridge_default_work_dir, bridge_default_model, default_model

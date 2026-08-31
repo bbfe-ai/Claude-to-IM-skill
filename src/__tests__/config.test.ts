@@ -210,3 +210,36 @@ describe('loadConfig/saveConfig round-trip', () => {
     assert.equal(m.get('bridge_weixin_enabled'), 'false');
   });
 });
+
+// ── Tuitui ──
+
+describe('configToSettings: tuitui', () => {
+  const tuituiConfig: Config = {
+    runtime: 'claude',
+    enabledChannels: ['tuitui'],
+    defaultWorkDir: '/tmp/test',
+    defaultMode: 'code',
+    tuituiAppId: 'app-1',
+    tuituiSecret: 'sec-1',
+    tuituiBotName: '助手',
+    tuituiApiBase: 'https://alarm.im.qihoo.net',
+    tuituiMediaEnabled: true,
+    tuituiCardUrl: 'https://intent-os.qihoo.net',
+  };
+
+  it('maps tuitui config to bridge settings', () => {
+    const m = configToSettings(tuituiConfig);
+    assert.equal(m.get('bridge_tuitui_enabled'), 'true');
+    assert.equal(m.get('bridge_tuitui_appid'), 'app-1');
+    assert.equal(m.get('bridge_tuitui_secret'), 'sec-1');
+    assert.equal(m.get('bridge_tuitui_bot_name'), '助手');
+    assert.equal(m.get('bridge_tuitui_api_base'), 'https://alarm.im.qihoo.net');
+    assert.equal(m.get('bridge_tuitui_media_enabled'), 'true');
+    assert.equal(m.get('bridge_tuitui_card_url'), 'https://intent-os.qihoo.net');
+  });
+
+  it('disables tuitui when not in enabledChannels', () => {
+    const m = configToSettings({ ...tuituiConfig, enabledChannels: ['telegram'] });
+    assert.equal(m.get('bridge_tuitui_enabled'), 'false');
+  });
+});

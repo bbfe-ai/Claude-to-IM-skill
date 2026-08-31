@@ -13,6 +13,7 @@ import * as bridgeManager from 'claude-to-im/src/lib/bridge/bridge-manager.js';
 // Side-effect import to trigger adapter self-registration
 import 'claude-to-im/src/lib/bridge/adapters/index.js';
 import './adapters/weixin-adapter.js';
+import './adapters/tuitui-adapter.js';
 
 import type { LLMProvider } from 'claude-to-im/src/lib/bridge/host.js';
 import { loadConfig, configToSettings, CTI_HOME } from './config.js';
