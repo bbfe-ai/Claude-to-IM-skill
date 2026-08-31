@@ -38,11 +38,13 @@ stop_daemon_sh_instance() {
   fi
 }
 
-# 等待日志出现 WS 连接成功（最多 20 秒）
+# 等待日志出现 WS 连接成功（最多 20 秒；base_line 为调用前日志行数，只查新增部分）
 wait_ws_connected() {
-  local found=0
+  local base_line="${1:-0}" found=0
   for _ in $(seq 1 20); do
-    if grep -q "\[tuitui-ws\] 连接成功" "$BRIDGE_LOG" 2>/dev/null; then found=1; break; fi
+    if [ -f "$BRIDGE_LOG" ]; then
+      if tail -n +$((base_line + 1)) "$BRIDGE_LOG" 2>/dev/null | grep -q "\[tuitui-ws\] 连接成功"; then found=1; break; fi
+    fi
     sleep 1
   done
   if [ "$found" = "1" ]; then
@@ -53,6 +55,11 @@ wait_ws_connected() {
   echo "   查看: systemctl status $SERVICE_NAME"
   echo "   日志: journalctl -u $SERVICE_NAME -n 50"
   return 1
+}
+
+# node 绝对路径（systemd 环境 PATH 不含 nvm 等自定义路径，ExecStart 必须用绝对路径）
+node_bin() {
+  command -v node || { echo "错误: 未找到 node，请确认 Node >= 20 已安装"; exit 1; }
 }
 
 print_management_hint() {

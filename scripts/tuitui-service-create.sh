@@ -26,7 +26,11 @@ ensure_root
 stop_daemon_sh_instance
 
 # ── 3. 写 systemd 单元 ──
-echo "==> 写入 systemd 单元 $UNIT_FILE"
+NODE_BIN="$(node_bin)"
+# systemd 默认 PATH 不含 nvm 等自定义路径——把当前 shell 的 PATH 固化进 unit（node/claude 都能找到）
+SERVICE_PATH="$PATH"
+LOG_BASE_LINE=$(wc -l < "$BRIDGE_LOG" 2>/dev/null || echo 0)
+echo "==> 写入 systemd 单元 $UNIT_FILE（node: $NODE_BIN）"
 cat > "$UNIT_FILE" <<EOF
 [Unit]
 Description=Claude-to-IM TuiTui bridge daemon
@@ -37,8 +41,9 @@ Wants=network-online.target
 Type=simple
 User=${SERVICE_USER}
 Environment=CTI_HOME=${CTI_HOME}
+Environment=PATH=${SERVICE_PATH}
 WorkingDirectory=${SKILL_DIR}
-ExecStart=/usr/bin/env node dist/daemon.mjs
+ExecStart=${NODE_BIN} dist/daemon.mjs
 Restart=on-failure
 RestartSec=5
 
@@ -52,9 +57,9 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 && echo "     已设置开机自启（enable）"
 systemctl restart "$SERVICE_NAME"
 
-# ── 5. 校验 WS 连接 ──
+# ── 5. 校验 WS 连接（只看本次启动后的新日志） ──
 echo "==> 校验推推 WS 连接..."
-if wait_ws_connected; then
+if wait_ws_connected "$LOG_BASE_LINE"; then
   echo "✅ 服务创建完成：$SERVICE_NAME（开机自启已启用）"
 else
   exit 1
