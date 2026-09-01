@@ -107,11 +107,14 @@ powershell -ExecutionPolicy Bypass -File scripts\install-tuitui-win.ps1
 # 凭据来自(优先级): 已有 config.env > 环境变量 > -Interactive 交互式输入
 # 常用参数: -AutoApprove（自动审批）, -Workdir DIR, -Interactive, -CtiHome DIR
 
-# 日常管理（复用上游 daemon.ps1）
-powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 start|stop|status|logs 100
+# cmd 统一入口（bat，推荐日常使用）
+scripts\tuitui.bat install [-AutoApprove] [-Workdir DIR] [-Interactive]
+scripts\tuitui.bat start | stop | status | logs 100
+scripts\tuitui.bat install-service | uninstall-service
 
-# 开机自启（WinSW/NSSM 包装为 Windows 服务）
-powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 install-service
+# 或直接用 PowerShell 版管理脚本
+powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 start|stop|status|logs 100
+powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 install-service   # 开机自启（WinSW/NSSM）
 powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 uninstall-service
 ```
 
