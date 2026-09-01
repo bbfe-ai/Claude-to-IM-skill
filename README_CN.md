@@ -52,7 +52,7 @@ CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<机器
 ```
 
 脚本自动完成：环境检查 → 上游依赖准备 → 配置生成 → 构建 → 启动 → 校验 WS 连接。
-日常管理复用 `scripts/daemon.sh {start|stop|status|logs}`。详见 [references/tuitui-usage.md](references/tuitui-usage.md)。
+日常管理复用 `scripts/daemon.sh {start|stop|status|logs}`。**Windows 用 `scripts\install-tuitui-win.ps1` 一键安装**。详见 [references/tuitui-usage.md](references/tuitui-usage.md)。
 
 ### Claude Code
 

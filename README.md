@@ -52,7 +52,7 @@ CTI_TUITUI_APPID=<App ID> CTI_TUITUI_SECRET=<Secret> CTI_TUITUI_BOT_NAME=<bot na
 ```
 
 The script handles: environment checks → upstream dependency setup → config generation → build → start → WS connectivity check.
-Day-to-day management reuses `scripts/daemon.sh {start|stop|status|logs}`. See [references/tuitui-usage.md](references/tuitui-usage.md) for details.
+Day-to-day management reuses `scripts/daemon.sh {start|stop|status|logs}`. **Windows: use `scripts\install-tuitui-win.ps1` for one-click install.** See [references/tuitui-usage.md](references/tuitui-usage.md) for details.
 
 ### Claude Code
 

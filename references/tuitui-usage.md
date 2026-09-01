@@ -97,7 +97,30 @@ systemctl disable claude-to-im-tuitui              # 关闭开机自启（服务
 | 图片没到 Claude | 确认 `CTI_TUITUI_MEDIA_ENABLED=true`；设 `CTI_TUITUI_DEBUG=true` 后日志 `media chat frame` 看帧类型；纯图片消息应走 `msgtype:"image"`；下载失败会收到「Failed to download N attachment(s)」回复并可查 `下载失败` 日志 |
 | 启动后 WS 连不上 | 由客户端指数退避重连（2s→30s，最多 100 次）；401/403 = App ID/Secret 错误会熔断并停止重连 |
 
-## 七、生产部署（Linux Host 示例）
+## 七、Windows 使用（PowerShell）
+
+前置：安装 **Node.js >= 20**、**Claude Code CLI**、**Git**（Git Bash 可选）。
+
+```powershell
+# 一键安装（环境检查 → 依赖准备 → 配置生成 → 构建 → 启动 → 校验 WS 连接）
+powershell -ExecutionPolicy Bypass -File scripts\install-tuitui-win.ps1
+# 凭据来自(优先级): 已有 config.env > 环境变量 > -Interactive 交互式输入
+# 常用参数: -AutoApprove（自动审批）, -Workdir DIR, -Interactive, -CtiHome DIR
+
+# 日常管理（复用上游 daemon.ps1）
+powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 start|stop|status|logs 100
+
+# 开机自启（WinSW/NSSM 包装为 Windows 服务）
+powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 install-service
+powershell -ExecutionPolicy Bypass -File scripts\daemon.ps1 uninstall-service
+```
+
+说明：
+- 配置默认在 `%USERPROFILE%\.claude-to-im\config.env`（与 Linux 同一套 `CTI_*` 变量）
+- 依赖仓库默认克隆 `https://github.com/bbfe-ai/Claude-to-IM`，可用环境变量 `CTI_UPSTREAM_REPO` 覆盖
+- 推推支持在 Git Bash 下用 `install-tuitui.sh` 安装 + `daemon.sh` 管理（脚本检测 Windows 自动委托 PowerShell）
+
+## 八、生产部署（Linux Host 示例）
 
 ```bash
 # 1. 克隆与一键部署
@@ -111,7 +134,7 @@ CTI_TUITUI_APPID=... CTI_TUITUI_SECRET=... CTI_TUITUI_BOT_NAME=... CTI_HOME=/var
 
 **注意**：daemon 机器需能访问 `wss://alarm.im.qihoo.net` 与 `https://im.live.360.cn`（媒体下载域名，内网）。
 
-## 八、已知限制
+## 九、已知限制
 
 - 出站媒体（Claude 主动发图片/文件给用户）暂不支持——框架消息模型为文本
 - 权限卡片回调依赖 msgid 一致性（已按联调实测校准）
