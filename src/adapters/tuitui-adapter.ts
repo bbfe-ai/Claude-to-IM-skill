@@ -2,7 +2,7 @@
 //! action 回调 → bridge 权限 broker；入站媒体下载为 FileAttachment。
 
 import type {
-  ChannelType, FileAttachment, InboundMessage, OutboundMessage, SendResult,
+  ChannelType, FileAttachment, InboundMessage, OutboundMessage, SendResult, ToolCallInfo,
 } from 'claude-to-im/src/lib/bridge/types.js';
 import { BaseChannelAdapter, registerAdapterFactory } from 'claude-to-im/src/lib/bridge/channel-adapter.js';
 import { getBridgeContext } from 'claude-to-im/src/lib/bridge/context.js';
@@ -14,6 +14,28 @@ import {
   type InteractiveCard, type ParsedChatMessage, type ParsedFrame, type TuituiCredentials,
 } from './tuitui/tuitui-types.js';
 
+/** 处理中状态卡的最小更新间隔（毫秒），防 modifyInteractive 刷接口。 */
+const CARD_THROTTLE_MS = 1500;
+
+/** 卡片正文截断长度（推推正文过长会被折叠）。 */
+const CARD_BODY_MAX_CHARS = 400;
+
+/** 卡片生命周期阶段。 */
+export type ProcessingPhase = 'received' | 'streaming' | 'completed' | 'error' | 'interrupted';
+
+interface ProcessingCardState {
+  /** 发送目标（单聊 senderId / 群聊 groupId）。 */
+  target: string;
+  /** 已创建卡片的 messageId（modifyInteractive 更新用）。 */
+  cardMsgId: string;
+  /** 最近一次更新时刻，用于节流。 */
+  lastUpdateAt: number;
+  pendingText: string;
+  throttleTimer: ReturnType<typeof setTimeout> | null;
+  /** 当前活跃工具列表（footer 展示）。 */
+  tools: ToolCallInfo[];
+}
+
 export class TuituiAdapter extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'tuitui';
 
@@ -22,6 +44,8 @@ export class TuituiAdapter extends BaseChannelAdapter {
   private queue: InboundMessage[] = [];
   private waiters: Array<(msg: InboundMessage | null) => void> = [];
   private frameChain: Promise<void> = Promise.resolve();
+  /** chatId → 处理中状态卡（同一会话同时只维护一张）。 */
+  private processingCards = new Map<string, ProcessingCardState>();
 
   private credentials(): TuituiCredentials | null {
     const { store } = getBridgeContext();
@@ -60,6 +84,10 @@ export class TuituiAdapter extends BaseChannelAdapter {
     this.client?.stop();
     this.client = null;
     this.queue = [];
+    for (const state of this.processingCards.values()) {
+      if (state.throttleTimer) clearTimeout(state.throttleTimer);
+    }
+    this.processingCards.clear();
     for (const waiter of this.waiters) waiter(null);
     this.waiters = [];
   }
@@ -111,9 +139,127 @@ export class TuituiAdapter extends BaseChannelAdapter {
     }
   }
 
+  // ── 处理中状态卡（streaming card，参考 intent-os 流式状态反馈）──────────────
+
+  /**
+   * 消息被消费时先回一张"已收到，处理中"卡；若该会话已有活跃卡则跳过。
+   * fire-and-forget，失败仅记日志。
+   */
+  private async notifyProcessing(chatId: string): Promise<void> {
+    if (this.processingCards.has(chatId)) return;
+    const creds = this.credentials();
+    const decoded = decodeTuituiChatId(chatId);
+    if (!creds || !decoded || decoded.appid !== creds.appid) return;
+
+    const card = buildProcessingCard('received', '', [], creds.cardUrl);
+    const result = await sendInteractive(creds, decoded.target, card);
+    if (!result.ok || !result.messageId) {
+      console.warn(`[tuitui-adapter] 处理中卡片发送失败: ${result.error ?? '无 messageId'}`);
+      return;
+    }
+    this.processingCards.set(chatId, {
+      target: decoded.target,
+      cardMsgId: result.messageId,
+      lastUpdateAt: 0,
+      pendingText: '',
+      throttleTimer: null,
+      tools: [],
+    });
+  }
+
+  /**
+   * bridge 流式输出正文时更新卡片（节流 + trailing-edge，参考 feishu 实现）。
+   */
+  onStreamText(chatId: string, fullText: string): void {
+    const state = this.processingCards.get(chatId);
+    if (!state) return;
+    state.pendingText = fullText.length > CARD_BODY_MAX_CHARS
+      ? fullText.slice(0, CARD_BODY_MAX_CHARS) + '…'
+      : fullText;
+    this.scheduleCardUpdate(chatId, state);
+  }
+
+  /**
+   * 工具调用状态变化时更新卡片 footer（当前工具名）。
+   */
+  onToolEvent(chatId: string, tools: ToolCallInfo[]): void {
+    const state = this.processingCards.get(chatId);
+    if (!state) return;
+    state.tools = tools;
+    this.scheduleCardUpdate(chatId, state);
+  }
+
+  /**
+   * 处理结束：卡片 finalize 为完成/错误/中断状态。
+   * 返回 false —— 正式正文仍由 bridge 以 sendText 发送（可引用、可复制）。
+   */
+  async onStreamEnd(chatId: string, status: 'completed' | 'interrupted' | 'error', _responseText: string): Promise<boolean> {
+    const state = this.processingCards.get(chatId);
+    if (!state) return false;
+    if (state.throttleTimer) {
+      clearTimeout(state.throttleTimer);
+      state.throttleTimer = null;
+    }
+    const creds = this.credentials();
+    const phase: ProcessingPhase = status === 'completed' ? 'completed'
+      : status === 'interrupted' ? 'interrupted' : 'error';
+    if (creds) {
+      const result = await modifyInteractive(
+        creds, state.target, state.cardMsgId,
+        buildProcessingCard(phase, state.pendingText, state.tools, creds.cardUrl),
+      );
+      if (!result.ok) console.warn(`[tuitui-adapter] 处理结束卡片更新失败: ${result.error}`);
+    }
+    this.processingCards.delete(chatId);
+    return false;
+  }
+
+  /** 消息处理结束后的兜底清理（防状态卡泄漏）。 */
+  onMessageEnd(chatId: string): void {
+    const state = this.processingCards.get(chatId);
+    if (!state) return;
+    if (state.throttleTimer) clearTimeout(state.throttleTimer);
+    this.processingCards.delete(chatId);
+  }
+
+  /** 节流调度：距上次更新 ≥CARD_THROTTLE_MS 立即刷，否则排 trailing-edge 定时器。 */
+  private scheduleCardUpdate(chatId: string, state: ProcessingCardState): void {
+    const elapsed = Date.now() - state.lastUpdateAt;
+    if (elapsed >= CARD_THROTTLE_MS && state.lastUpdateAt > 0) {
+      if (state.throttleTimer) { clearTimeout(state.throttleTimer); state.throttleTimer = null; }
+      void this.flushCardUpdate(chatId, state);
+      return;
+    }
+    if (!state.throttleTimer) {
+      const delay = state.lastUpdateAt === 0 ? 0 : CARD_THROTTLE_MS - elapsed;
+      state.throttleTimer = setTimeout(() => {
+        state.throttleTimer = null;
+        void this.flushCardUpdate(chatId, state);
+      }, Math.max(delay, 0));
+    }
+  }
+
+  private async flushCardUpdate(chatId: string, state: ProcessingCardState): Promise<void> {
+    const creds = this.credentials();
+    if (!creds) return;
+    const result = await modifyInteractive(
+      creds, state.target, state.cardMsgId,
+      buildProcessingCard('streaming', state.pendingText, state.tools, creds.cardUrl),
+    );
+    if (result.ok) state.lastUpdateAt = Date.now();
+    else console.warn(`[tuitui-adapter] 处理中卡片更新失败: ${result.error}`);
+  }
+
   // ── 内部 ────────────────────────────────────────────────
 
   private enqueue(message: InboundMessage): void {
+    // 每条入站消息（群聊@/单聊/回调）统一在此进入系统：
+    // 普通消息（非按钮回调/非命令）先回一张"处理中"卡，让用户立即知道
+    // Claude 已收到并在处理（参考 intent-os 的流式状态反馈）。
+    // fire-and-forget：卡片失败不影响消息处理主链路。
+    if (!message.callbackData && !message.text.trim().startsWith('/')) {
+      void this.notifyProcessing(message.address.chatId);
+    }
     if (this.waiters.length > 0) {
       this.waiters.shift()!(message);
       return;
@@ -236,6 +382,60 @@ export class TuituiAdapter extends BaseChannelAdapter {
     );
     if (!result.ok) console.warn(`[tuitui-adapter] 权限卡片更新失败: ${result.error}`);
   }
+}
+
+/**
+ * 构建"处理中"状态卡（参考 intent-os 的流式状态反馈形态）。
+ *
+ * - received:   刚收到消息，Claude 开始处理
+ * - streaming:  正在思考/输出（footer 展示当前工具）
+ * - completed:  处理完成（正式正文由 sendText 单独发送，卡片只做状态收尾）
+ * - error:      处理出错
+ * - interrupted: 被用户/超时中断
+ */
+export function buildProcessingCard(phase: ProcessingPhase, text: string, tools: ToolCallInfo[], cardUrl = DEFAULT_CARD_URL): InteractiveCard {
+  const running = tools.filter(t => t.status === 'running');
+  const toolText = running.length > 0
+    ? `正在调用工具：${running.map(t => t.name).join('、')}`
+    : (tools.length > 0 ? `已完成 ${tools.length} 次工具调用` : '正在思考');
+  const head = {
+    text: '🤖 Claude 处理中',
+    bgcolor: phase === 'error' ? '#C0392B' : phase === 'completed' ? '#27AE60' : '#2C3E50',
+    tcolor: '#FFFFFF',
+  };
+  let bodyText: string;
+  let footerText: string;
+  switch (phase) {
+    case 'received':
+      bodyText = '已收到你的消息，Claude 正在处理…';
+      footerText = '处理中';
+      break;
+    case 'streaming':
+      bodyText = text.trim() ? `正在输出：\n${text}` : toolText;
+      footerText = running.length > 0 ? `🔧 ${running[0]!.name}` : '处理中';
+      break;
+    case 'completed':
+      bodyText = '处理完成，回复已发送。';
+      footerText = '✅ 已完成';
+      break;
+    case 'error':
+      bodyText = '处理出错，请稍后重试或查看日志。';
+      footerText = '❌ 出错';
+      break;
+    case 'interrupted':
+      bodyText = '任务已中断。';
+      footerText = '⏹ 已中断';
+      break;
+  }
+  return {
+    id: `status_${Date.now()}`,
+    url: cardUrl,
+    mobileurl: cardUrl,
+    head,
+    body: { content: bodyText },
+    footer: [{ text: '状态', rtext: footerText }],
+    action: [],
+  };
 }
 
 export function buildCardFromInlineButtons(message: OutboundMessage, cardUrl: string): InteractiveCard {

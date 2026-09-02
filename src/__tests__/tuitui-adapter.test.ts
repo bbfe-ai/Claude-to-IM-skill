@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { BridgeStore } from 'claude-to-im/src/lib/bridge/host.js';
+import type { InboundMessage } from 'claude-to-im/src/lib/bridge/types.js';
 import { initBridgeContext } from 'claude-to-im/src/lib/bridge/context.js';
-import { TuituiAdapter, buildCardFromInlineButtons, buildDecisionCard, stripHtml } from '../adapters/tuitui-adapter.js';
+import { TuituiAdapter, buildCardFromInlineButtons, buildDecisionCard, buildProcessingCard, stripHtml } from '../adapters/tuitui-adapter.js';
 
 function createMockStore(settings: Record<string, string> = {}) {
   return { getSetting: (key: string) => settings[key] ?? null };
@@ -116,5 +117,87 @@ describe('TuituiAdapter 媒体失败透传', () => {
       globalThis.fetch = originalFetch;
       delete (globalThis as Record<string, unknown>)['__bridge_context__'];
     }
+  });
+});
+
+describe('buildProcessingCard', () => {
+  it('received phase: 告知用户已收到并处理中', () => {
+    const card = buildProcessingCard('received', '', [], 'https://intent-os.qihoo.net');
+    assert.equal(card.head.text, '🤖 Claude 处理中');
+    assert.equal(card.body.content, '已收到你的消息，Claude 正在处理…');
+    assert.deepEqual(card.footer, [{ text: '状态', rtext: '处理中' }]);
+    assert.equal(card.action.length, 0);
+  });
+
+  it('streaming phase: 展示输出预览或当前工具', () => {
+    const withText = buildProcessingCard('streaming', '正在分析代码…', [], 'https://intent-os.qihoo.net');
+    assert.equal(withText.body.content, '正在输出：\n正在分析代码…');
+    const withTool = buildProcessingCard('streaming', '', [
+      { id: 't1', name: 'Bash', status: 'running' },
+      { id: 't0', name: 'Read', status: 'complete' },
+    ], 'https://intent-os.qihoo.net');
+    assert.equal(withTool.body.content, '正在调用工具：Bash');
+    assert.equal(withTool.footer[0]!.rtext, '🔧 Bash');
+  });
+
+  it('completed / error / interrupted phases: 状态收尾', () => {
+    assert.equal(buildProcessingCard('completed', '', [], 'https://x').head.bgcolor, '#27AE60');
+    assert.equal(buildProcessingCard('completed', '', [], 'https://x').footer[0]!.rtext, '✅ 已完成');
+    assert.equal(buildProcessingCard('error', '', [], 'https://x').head.bgcolor, '#C0392B');
+    assert.equal(buildProcessingCard('error', '', [], 'https://x').footer[0]!.rtext, '❌ 出错');
+    assert.equal(buildProcessingCard('interrupted', '', [], 'https://x').footer[0]!.rtext, '⏹ 已中断');
+  });
+
+  it('默认 cardUrl 回退到 DEFAULT_CARD_URL', () => {
+    const card = buildProcessingCard('received', '', []);
+    assert.equal(card.url, 'https://intent-os.qihoo.net');
+  });
+});
+
+describe('TuituiAdapter 处理中卡片生命周期', () => {
+  function makeAdapter() {
+    const settings: Record<string, string> = {
+      bridge_tuitui_appid: 'app-1',
+      bridge_tuitui_secret: 'secret-1',
+      bridge_tuitui_card_url: 'https://intent-os.qihoo.net',
+    };
+    setupContext(createMockStore(settings));
+    return new TuituiAdapter();
+  }
+
+  it('enqueue 普通消息触发"处理中"卡路径，命令/回调不触发（fire-and-forget 无凭据仅记日志）', async () => {
+    const adapter = makeAdapter();
+    // 注入一条普通消息 + 一条命令 + 一条回调
+    const msg: InboundMessage = {
+      messageId: 'm1',
+      address: { channelType: 'tuitui', chatId: 'tuitui:app-1:single:u1', userId: 'u1', displayName: 'u1' },
+      text: '帮我写个脚本',
+      timestamp: Date.now(),
+    };
+    adapter['enqueue'](msg);
+    const cmd: InboundMessage = { ...msg, messageId: 'm2', text: '/status' };
+    adapter['enqueue'](cmd);
+    const cb: InboundMessage = { ...msg, messageId: 'm3', text: '', callbackData: 'perm:allow:req-1' };
+    adapter['enqueue'](cb);
+
+    // 无凭据发送会失败但流程不抛错（fire-and-forget）
+    const consumed: InboundMessage[] = [];
+    consumed.push((await adapter.consumeOne())!);
+    consumed.push((await adapter.consumeOne())!);
+    consumed.push((await adapter.consumeOne())!);
+    assert.deepEqual(consumed.map(c => c.messageId), ['m1', 'm2', 'm3']);
+  });
+
+  it('onStreamEnd 返回 false 并清理状态（正文由 sendText 发送）', async () => {
+    const adapter = makeAdapter();
+    const chatId = 'tuitui:app-1:single:u1';
+    // 手动注入状态（跳过真实 API 调用）
+    adapter['processingCards'].set(chatId, {
+      target: 'u1', cardMsgId: 'card-1', lastUpdateAt: 0,
+      pendingText: 'ok', throttleTimer: null, tools: [],
+    });
+    const finalized = await adapter.onStreamEnd(chatId, 'completed', 'ok');
+    assert.equal(finalized, false);
+    assert.equal(adapter['processingCards'].has(chatId), false);
   });
 });

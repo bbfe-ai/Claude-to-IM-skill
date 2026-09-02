@@ -144,3 +144,20 @@ CTI_TUITUI_APPID=... CTI_TUITUI_SECRET=... CTI_TUITUI_BOT_NAME=... CTI_HOME=/var
 - 出站媒体（Claude 主动发图片/文件给用户）暂不支持——框架消息模型为文本
 - 权限卡片回调依赖 msgid 一致性（已按联调实测校准）
 - 多推推应用并行（单账号模式）
+
+## 十、处理中状态卡（进行中反馈）
+
+收到消息后，推推会话会立即弹出一张 **"🤖 Claude 处理中"** 状态卡（参考 intent-os 的流式状态反馈），
+避免用户等待时不知道 Claude 是否已收到消息。卡片三阶段：
+
+| 阶段 | 卡片表现 | 触发时机 |
+|---|---|---|
+| received | 「已收到你的消息，Claude 正在处理…」 | 消息被 bridge 消费时立即发送 |
+| streaming | 正文预览（≤400 字）或「🔧 正在调用工具：Bash」 | LLM 输出/工具调用期间节流更新（≥1.5s/次） |
+| completed / error / interrupted | 「✅ 已完成 / ❌ 出错 / ⏹ 已中断」状态收尾 | 处理结束时 finalize |
+
+- 正式回复正文仍以普通文本发送（可引用、可复制），状态卡只做过程反馈
+- 同一会话同时只维护一张状态卡；命令（`/` 开头）与权限按钮回调不触发
+- 卡片为 fire-and-forget：发送/更新失败仅记日志，不影响消息主链路
+- 卡片跳转地址沿用 `CTI_TUITUI_CARD_URL`（默认 `https://intent-os.qihoo.net`）
+- 配置项 `CTI_TUITUI_CARD_URL` 同时用于状态卡与权限卡片
